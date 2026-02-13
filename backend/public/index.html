@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Elara | Kinetic Ledger</title>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@200;400;600&family=Syncopate:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #030303;
+      --glass: rgba(255, 255, 255, 0.03);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --accent-glow: rgba(0, 240, 255, 0.15);
+      --text-main: #ffffff;
+      --text-dim: rgba(255, 255, 255, 0.5);
+      --accent: #00f0ff;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-main);
+      font-family: 'Plus Jakarta Sans', sans-serif;
+      margin: 0;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    /* Animated background orbs */
+    .orb {
+      position: absolute;
+      width: 600px;
+      height: 600px;
+      border-radius: 50%;
+      background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
+      filter: blur(80px);
+      z-index: -1;
+      animation: float 20s infinite alternate;
+    }
+
+    @keyframes float {
+      from { transform: translate(-10%, -10%); }
+      to { transform: translate(10%, 10%); }
+    }
+
+    .main-wrapper {
+      width: 95vw;
+      max-width: 1200px;
+      height: 85vh;
+      display: grid;
+      grid-template-columns: 1fr 1.5fr;
+      gap: 20px;
+      position: relative;
+    }
+
+    /* Left Control Blade */
+    .control-blade {
+      background: var(--glass);
+      backdrop-filter: blur(40px);
+      border: 1px solid var(--glass-border);
+      border-radius: 40px;
+      padding: 60px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    }
+
+    .logo-area h1 {
+      font-family: 'Syncopate', sans-serif;
+      font-size: 1.2rem;
+      letter-spacing: 12px;
+      text-transform: uppercase;
+      margin: 0;
+      background: linear-gradient(to right, #fff, #666);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .input-group { margin-top: 80px; }
+
+    .input-wrapper {
+      position: relative;
+      margin-bottom: 50px;
+    }
+
+    .input-wrapper label {
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      color: var(--text-dim);
+      display: block;
+      margin-bottom: 10px;
+    }
+
+    input {
+      width: 100%;
+      background: transparent;
+      border: none;
+      font-size: 2rem;
+      color: #fff;
+      font-weight: 200;
+      outline: none;
+      border-bottom: 1px solid var(--glass-border);
+      padding-bottom: 10px;
+      transition: all 0.4s ease;
+    }
+
+    input:focus { border-bottom-color: var(--accent); text-shadow: 0 0 15px var(--accent-glow); }
+
+    .auth-btn {
+      background: #fff;
+      color: #000;
+      border: none;
+      padding: 25px;
+      border-radius: 20px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .auth-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 15px 30px rgba(255,255,255,0.2);
+    }
+
+    /* Right Ledger Stream */
+    .ledger-stream {
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .ledger-header {
+      padding: 20px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--glass-border);
+      margin-bottom: 30px;
+    }
+
+    #log {
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+    }
+
+    .transaction-card {
+      background: var(--glass);
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      padding: 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: all 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+      animation: slideIn 0.6s ease forwards;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateX(50px); }
+      to { opacity: 1; transform: translateX(0); }
+    }
+
+    .tx-info .uid { font-size: 0.7rem; color: var(--text-dim); font-family: monospace; }
+    .tx-info .amt { font-size: 1.8rem; font-weight: 600; margin: 5px 0; }
+    .tx-info .label { font-size: 0.6rem; text-transform: uppercase; color: var(--accent); letter-spacing: 1px; }
+
+    .tx-action {
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .transaction-card:hover .tx-action { opacity: 1; }
+
+    .dismiss-btn {
+      color: var(--text-dim);
+      font-size: 0.7rem;
+      cursor: pointer;
+      border: 1px solid var(--glass-border);
+      padding: 8px 15px;
+      border-radius: 10px;
+    }
+
+    ::-webkit-scrollbar { width: 0px; }
+  </style>
+</head>
+<body>
+
+  <div class="orb"></div>
+
+  <div class="main-wrapper">
+    <div class="control-blade">
+      <div class="logo-area">
+        <h1>Elara</h1>
+        <p style="font-size: 0.7rem; color: var(--text-dim);">SYSTEM_STATUS: ACTIVE</p>
+      </div>
+
+      <div class="input-group">
+        <div class="input-wrapper">
+          <label>Encrypted Identity</label>
+          <input id="uid" placeholder="SCN_READY" readonly>
+        </div>
+
+        <div class="input-wrapper">
+          <label>Transfer Quantities</label>
+          <input id="amount" type="number" placeholder="0.00">
+        </div>
+      </div>
+
+      <button class="auth-btn" onclick="sendTopup()">Execute Protocol</button>
+    </div>
+
+    <div class="ledger-stream">
+      <div class="ledger-header">
+        <span style="font-size: 0.8rem; letter-spacing: 3px; font-weight: 600;">STREAM_LOG</span>
+        <span id="status-dot" style="width: 8px; height: 8px; background: var(--accent); border-radius: 50%; box-shadow: 0 0 10px var(--accent);"></span>
+      </div>
+
+      <div id="log">
+        </div>
+    </div>
+  </div>
+
+  <script>
+    const socket = io();
+    const logDiv = document.getElementById('log');
+
+    socket.on('card_update', data => {
+      const entryId = 'tx-' + Date.now();
+      const card = document.createElement('div');
+      card.className = 'transaction-card';
+      card.id = entryId;
+      
+      const isBalance = data.balance !== undefined;
+      const val = isBalance ? data.balance : data.new_balance;
+      const typeLabel = isBalance ? "Current Credit" : "Injection Verified";
+
+      card.innerHTML = `
+        <div class="tx-info">
+          <div class="uid">ID: ${data.uid}</div>
+          <div class="amt">${val.toLocaleString()}<span style="font-size: 1rem; opacity: 0.5; margin-left: 8px;">RWF</span></div>
+          <div class="label">${typeLabel}</div>
+        </div>
+        <div class="tx-action">
+          <div class="dismiss-btn" onclick="removeCard('${entryId}')">Dismiss</div>
+        </div>
+      `;
+      
+      logDiv.prepend(card);
+      if (isBalance) document.getElementById('uid').value = data.uid;
+    });
+
+    function removeCard(id) {
+      const el = document.getElementById(id);
+      el.style.transform = "scale(0.9) translateX(100px)";
+      el.style.opacity = "0";
+      setTimeout(() => el.remove(), 500);
+    }
+
+    function sendTopup() {
+      const uid = document.getElementById('uid').value;
+      const amt = document.getElementById('amount').value;
+      if(!uid || !amt) return;
+
+      fetch('/topup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ uid, amount: parseInt(amt) })
+      }).then(() => {
+          document.getElementById('amount').value = '';
+      });
+    }
+  </script>
+</body>
+</html>
